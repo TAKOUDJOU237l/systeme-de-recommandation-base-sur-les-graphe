@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LightGCN — Système de Recommandation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --navy:    #0a1a3e;
+      --blue:    #1a3a8f;
+      --accent:  #4f8ef7;
+      --cyan:    #00d4ff;
+      --green:   #00e676;
+      --amber:   #ffb300;
+      --red:     #ff5252;
+      --bg:      #07101f;
+      --bg2:     #0d1b30;
+      --bg3:     #112040;
+      --border:  #1e3560;
+      --text:    #e8eeff;
+      --muted:   #6a85b0;
+      --mono:    'Space Mono', monospace;
+      --sans:    'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative; z-index: 10;
+      background: linear-gradient(135deg, var(--navy) 0%, #0f2456 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+    }
+    .header-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 0;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .logo-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .logo-text h1 {
+      font-family: var(--mono);
+      font-size: 1.1rem; font-weight: 700;
+      color: var(--text); letter-spacing: -0.5px;
+    }
+    .logo-text p {
+      font-size: 0.72rem; color: var(--muted);
+      font-family: var(--mono);
+    }
+    .header-badges {
+      display: flex; gap: 0.6rem; flex-wrap: wrap;
+    }
+    .badge {
+      font-family: var(--mono); font-size: 0.65rem;
+      padding: 0.25rem 0.7rem; border-radius: 20px;
+      border: 1px solid;
+    }
+    .badge-blue  { color: var(--cyan);  border-color: var(--cyan);  background: rgba(0,212,255,.08); }
+    .badge-green { color: var(--green); border-color: var(--green); background: rgba(0,230,118,.08); }
+    .badge-amber { color: var(--amber); border-color: var(--amber); background: rgba(255,179,0,.08); }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      position: relative; z-index: 10;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 2rem;
+    }
+    .stats-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; gap: 2rem; flex-wrap: wrap;
+      align-items: center;
+    }
+    .stat-item {
+      display: flex; align-items: center; gap: 0.6rem;
+    }
+    .stat-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+    .stat-label { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
+    .stat-value { font-size: 0.82rem; color: var(--text);  font-family: var(--mono); font-weight: 700; }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      position: relative; z-index: 10;
+      max-width: 1200px; margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.7rem;
+      background: linear-gradient(90deg, var(--bg3), var(--bg2));
+    }
+    .card-icon {
+      font-size: 1rem;
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg); border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .card-title {
+      font-family: var(--mono); font-size: 0.82rem;
+      font-weight: 700; color: var(--text);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .card-body { padding: 1.4rem; }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 1.2rem; }
+    .form-group label {
+      display: block; font-size: 0.72rem;
+      font-family: var(--mono); color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 0.5rem;
+    }
+    .form-group label span {
+      color: var(--accent); font-weight: 700;
+    }
+    .input-wrapper { position: relative; }
+    .input-wrapper input[type="number"] {
+      width: 100%; padding: 0.75rem 1rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-family: var(--mono); font-size: 0.9rem;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .input-wrapper input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,142,247,.18);
+    }
+    .input-hint {
+      font-size: 0.67rem; color: var(--muted);
+      font-family: var(--mono); margin-top: 0.35rem;
+    }
+
+    /* ── SLIDER ── */
+    .slider-wrapper { position: relative; }
+    input[type="range"] {
+      width: 100%; height: 4px;
+      -webkit-appearance: none;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--border) 0%);
+      border-radius: 2px; outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid var(--bg);
+      box-shadow: 0 0 8px rgba(79,142,247,.5);
+      cursor: pointer;
+    }
+    .slider-labels {
+      display: flex; justify-content: space-between;
+      font-size: 0.65rem; color: var(--muted);
+      font-family: var(--mono); margin-top: 0.4rem;
+    }
+    #k-display {
+      font-family: var(--mono); font-size: 1.4rem;
+      font-weight: 700; color: var(--accent);
+      text-align: center; display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── BUTTON ── */
+    .btn-recommend {
+      width: 100%; padding: 0.9rem;
+      background: linear-gradient(135deg, var(--blue), var(--accent));
+      border: none; border-radius: 10px;
+      color: white; font-family: var(--mono);
+      font-size: 0.85rem; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, opacity .15s;
+      box-shadow: 0 4px 15px rgba(79,142,247,.3);
+      display: flex; align-items: center;
+      justify-content: center; gap: 0.6rem;
+    }
+    .btn-recommend:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 22px rgba(79,142,247,.45);
+    }
+    .btn-recommend:active { transform: translateY(0); }
+    .btn-recommend.loading { opacity: 0.7; pointer-events: none; }
+
+    /* ── QUICK USERS ── */
+    .quick-title {
+      font-size: 0.68rem; color: var(--muted);
+      font-family: var(--mono); text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 0.7rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .quick-users {
+      display: flex; flex-wrap: wrap; gap: 0.45rem;
+    }
+    .quick-btn {
+      padding: 0.3rem 0.65rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--muted);
+      font-family: var(--mono); font-size: 0.72rem;
+      cursor: pointer; transition: all .15s;
+    }
+    .quick-btn:hover {
+      border-color: var(--accent); color: var(--accent);
+      background: rgba(79,142,247,.08);
+    }
+
+    /* ── METRICS MINI ── */
+    .metrics-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 0.8rem; margin-top: 1rem;
+    }
+    .metric-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.8rem;
+      text-align: center;
+    }
+    .metric-box .m-val {
+      font-family: var(--mono); font-size: 1.1rem;
+      font-weight: 700; color: var(--accent);
+      display: block;
+    }
+    .metric-box .m-lbl {
+      font-size: 0.65rem; color: var(--muted);
+      font-family: var(--mono); margin-top: 0.2rem;
+    }
+
+    /* ── RESULTS PANEL ── */
+    #results-panel { min-height: 300px; }
+
+    .empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 4rem 2rem; text-align: center;
+    }
+    .empty-icon {
+      font-size: 3rem; margin-bottom: 1rem;
+      opacity: 0.4;
+    }
+    .empty-state h3 {
+      font-family: var(--mono); font-size: 0.9rem;
+      color: var(--muted); margin-bottom: 0.4rem;
+    }
+    .empty-state p { font-size: 0.8rem; color: var(--muted); opacity: 0.7; }
+
+    /* ── HISTORY ── */
+    .history-section { margin-bottom: 1.5rem; }
+    .section-label {
+      font-family: var(--mono); font-size: 0.68rem;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1; height: 1px;
+      background: var(--border);
+    }
+    .history-chips {
+      display: flex; flex-wrap: wrap; gap: 0.45rem;
+    }
+    .history-chip {
+      padding: 0.3rem 0.8rem;
+      background: rgba(0,212,255,.07);
+      border: 1px solid rgba(0,212,255,.25);
+      border-radius: 20px; font-size: 0.72rem;
+      color: var(--cyan);
+      font-family: var(--sans);
+      max-width: 200px;
+      white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── REC TABLE ── */
+    .rec-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .rec-table thead tr {
+      border-bottom: 1px solid var(--border);
+    }
+    .rec-table th {
+      font-family: var(--mono); font-size: 0.65rem;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.8px; padding: 0 0.7rem 0.7rem;
+      text-align: left; font-weight: 400;
+    }
+    .rec-table th:last-child { text-align: right; }
+    .rec-table tbody tr {
+      border-bottom: 1px solid rgba(30,53,96,.5);
+      transition: background .15s;
+      animation: rowIn .3s ease both;
+    }
+    @keyframes rowIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .rec-table tbody tr:hover {
+      background: rgba(79,142,247,.06);
+    }
+    .rec-table td {
+      padding: 0.7rem; font-size: 0.82rem;
+    }
+    .rank-badge {
+      display: inline-flex; align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      font-family: var(--mono); font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .rank-1 { background: rgba(255,179,0,.2); color: var(--amber); border: 1px solid rgba(255,179,0,.4); }
+    .rank-2 { background: rgba(200,200,200,.15); color: #b0bec5; border: 1px solid rgba(176,190,197,.3); }
+    .rank-3 { background: rgba(205,127,50,.15); color: #cd7f32; border: 1px solid rgba(205,127,50,.3); }
+    .rank-n { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+    .movie-title {
+      font-weight: 500; color: var(--text);
+      display: block; max-width: 280px;
+    }
+    .movie-genres {
+      font-size: 0.68rem; color: var(--muted);
+      margin-top: 0.15rem;
+      display: flex; flex-wrap: wrap; gap: 0.3rem;
+    }
+    .genre-tag {
+      padding: 0.1rem 0.4rem;
+      background: rgba(79,142,247,.1);
+      border: 1px solid rgba(79,142,247,.2);
+      border-radius: 3px; font-size: 0.62rem;
+      color: var(--accent);
+    }
+
+    .score-bar {
+      display: flex; align-items: center; gap: 0.6rem;
+      justify-content: flex-end;
+    }
+    .score-track {
+      width: 60px; height: 4px;
+      background: var(--border); border-radius: 2px;
+      overflow: hidden;
+    }
+    .score-fill {
+      height: 100%; border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--cyan));
+      transition: width .6s ease;
+    }
+    .score-val {
+      font-family: var(--mono); font-size: 0.72rem;
+      color: var(--muted); min-width: 40px; text-align: right;
+    }
+
+    /* ── LOADING SPINNER ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── API BOX ── */
+    .api-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem;
+      margin-top: 1rem;
+    }
+    .api-box pre {
+      font-family: var(--mono); font-size: 0.72rem;
+      color: var(--cyan); white-space: pre-wrap;
+      word-break: break-all; line-height: 1.6;
+    }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: rgba(255,82,82,.1);
+      border: 1px solid rgba(255,82,82,.3);
+      border-radius: 8px; padding: 1rem;
+      color: var(--red); font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative; z-index: 10;
+      text-align: center; padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 0.72rem;
+      font-family: var(--mono);
+    }
+    footer span { color: var(--accent); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ════════════════════════════════════════════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">🔮</div>
+      <div class="logo-text">
+        <h1>LightGCN Recommender</h1>
+        <p>ENSPY · AIA4 · Prof. M. Bitha · 24P817</p>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-blue">LightGCN K=3</span>
+      <span class="badge badge-green">MovieLens</span>
+      <span class="badge badge-amber">Flask API</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══ STATS BAR ══════════════════════════════════════════════════ -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-dot"></div>
+      <span class="stat-label">Statut</span>
+      <span class="stat-value" style="color:var(--green)">EN LIGNE</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Utilisateurs :</span>
+      <span class="stat-value">{{ "{:,}".format(n_users) }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Films :</span>
+      <span class="stat-value">{{ "{:,}".format(n_items) }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Paramètres :</span>
+      <span class="stat-value">{{ "{:,}".format(n_params) }}</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Recall@10 :</span>
+      <span class="stat-value" style="color:var(--cyan)">0.1051</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">NDCG@10 :</span>
+      <span class="stat-value" style="color:var(--cyan)">0.1650</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN ═══════════════════════════════════════════════════════ -->
+<main>
+
+  <!-- ── PANNEAU GAUCHE ── -->
+  <div>
+
+    <!-- Formulaire -->
+    <div class="card" style="margin-bottom:1.2rem">
+      <div class="card-header">
+        <div class="card-icon">🎯</div>
+        <span class="card-title">Paramètres</span>
+      </div>
+      <div class="card-body">
+
+        <div class="form-group">
+          <label>ID Utilisateur <span id="uid-span">(0 – {{ n_users - 1 }})</span></label>
+          <div class="input-wrapper">
+            <input type="number" id="user-id" value="0"
+                   min="0" max="{{ n_users - 1 }}" placeholder="Ex: 42"/>
+          </div>
+          <p class="input-hint">→ Correspond à l'index interne de l'utilisateur</p>
+        </div>
+
+        <div class="form-group">
+          <label>Nombre de recommandations (K)</label>
+          <span id="k-display">10</span>
+          <div class="slider-wrapper">
+            <input type="range" id="k-slider" min="1" max="50" value="10"/>
+          </div>
+          <div class="slider-labels">
+            <span>1</span><span>10</span><span>25</span><span>50</span>
+          </div>
+        </div>
+
+        <button class="btn-recommend" id="btn-recommend" onclick="fetchRecommendations()">
+          <span id="btn-text">⚡ Générer les recommandations</span>
+        </button>
+
+        <div style="margin-top:1.2rem">
+          <p class="quick-title">⚡ Utilisateurs rapides</p>
+          <div class="quick-users" id="quick-users">
+            <!-- généré par JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Métriques du modèle -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📊</div>
+        <span class="card-title">Performances du modèle</span>
+      </div>
+      <div class="card-body">
+        <p style="font-size:.75rem;color:var(--muted);line-height:1.6;margin-bottom:.5rem">
+          Évalué sur MovieLens small — split 80/20 stratifié par utilisateur.
+        </p>
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <span class="m-val">0.1051</span>
+            <span class="m-lbl">Recall@10</span>
+          </div>
+          <div class="metric-box">
+            <span class="m-val">0.1650</span>
+            <span class="m-lbl">NDCG@10</span>
+          </div>
+          <div class="metric-box">
+            <span class="m-val">0.1546</span>
+            <span class="m-lbl">Recall@20</span>
+          </div>
+          <div class="metric-box">
+            <span class="m-val">0.1702</span>
+            <span class="m-lbl">NDCG@20</span>
+          </div>
+        </div>
+        <div class="api-box" style="margin-top:1rem">
+          <p style="font-family:var(--mono);font-size:.65rem;color:var(--muted);
+                    text-transform:uppercase;letter-spacing:.8px;margin-bottom:.5rem">
+            Endpoint API REST
+          </p>
+          <pre>GET  /api/recommend?user_id=0&k=10
+POST /api/recommend
+     {"user_id": 0, "k": 10}
+
+GET  /api/stats
+GET  /api/users?limit=20</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── PANNEAU DROIT ── -->
+  <div class="card" id="results-panel">
+    <div class="card-header">
+      <div class="card-icon">🎬</div>
+      <span class="card-title" id="results-title">Recommandations</span>
+      <span id="results-badge" style="margin-left:auto;font-family:var(--mono);
+            font-size:.65rem;color:var(--muted)"></span>
+    </div>
+    <div class="card-body" id="results-body">
+
+      <!-- État initial -->
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🎬</div>
+        <h3>Aucune recommandation encore</h3>
+        <p>Saisissez un ID utilisateur et cliquez sur<br/>"Générer les recommandations"</p>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<!-- ══ FOOTER ═════════════════════════════════════════════════════ -->
+<footer>
+  <span>Kenné Takoudjou Franck Manuel</span> · Matricule 24P817 · AIA4 ·
+  ENSPY Yaoundé · Cours IA et Applications · Prof. <span>M. Bitha</span>
+</footer>
+
+<!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
+<script>
+  // ── Slider K ──────────────────────────────────────────────────
+  const slider   = document.getElementById('k-slider');
+  const kDisplay = document.getElementById('k-display');
+  slider.addEventListener('input', () => {
+    kDisplay.textContent = slider.value;
+    // mise à jour dégradé
+    const pct = (slider.value - 1) / 49 * 100;
+    slider.style.background =
+      `linear-gradient(90deg, var(--accent) ${pct}%, var(--border) ${pct}%)`;
+  });
+
+  // ── Boutons rapides ───────────────────────────────────────────
+  const quickIds = [0, 3, 7, 15, 42, 99, 150, 200];
+  const qc = document.getElementById('quick-users');
+  quickIds.forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'quick-btn';
+    btn.textContent = `#${id}`;
+    btn.onclick = () => {
+      document.getElementById('user-id').value = id;
+      fetchRecommendations();
+    };
+    qc.appendChild(btn);
+  });
+
+  // ── Fetch recommandations ─────────────────────────────────────
+  async function fetchRecommendations() {
+    const userId = parseInt(document.getElementById('user-id').value);
+    const k      = parseInt(slider.value);
+    const btn    = document.getElementById('btn-recommend');
+    const btnTxt = document.getElementById('btn-text');
+
+    // Loading state
+    btn.classList.add('loading');
+    btnTxt.innerHTML = '<span class="spinner"></span> Calcul en cours...';
+    document.getElementById('empty-state') &&
+      document.getElementById('empty-state').remove();
+
+    try {
+      const resp = await fetch(`/api/recommend?user_id=${userId}&k=${k}`);
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        showError(data.error || 'Erreur inconnue');
+        return;
+      }
+
+      renderResults(data);
+
+    } catch (err) {
+      showError('Impossible de contacter le serveur Flask : ' + err.message);
+    } finally {
+      btn.classList.remove('loading');
+      btnTxt.innerHTML = '⚡ Générer les recommandations';
+    }
+  }
+
+  // ── Affichage des résultats ───────────────────────────────────
+  function renderResults(data) {
+    const body  = document.getElementById('results-body');
+    const title = document.getElementById('results-title');
+    const badge = document.getElementById('results-badge');
+
+    title.textContent = `Recommandations — Utilisateur #${data.user_id}`;
+    badge.textContent = `Top-${data.k} films`;
+
+    // Historique
+    let histHTML = '';
+    if (data.history_sample && data.history_sample.length) {
+      histHTML = `
+        <div class="history-section">
+          <p class="section-label">Films déjà vus (échantillon)</p>
+          <div class="history-chips">
+            ${data.history_sample.map(h =>
+              `<span class="history-chip" title="${h.genres}">${h.title}</span>`
+            ).join('')}
+          </div>
+        </div>`;
+    }
+
+    // Tableau de recommandations
+    const maxScore = Math.max(...data.recommendations.map(r => r.score));
+    const rows = data.recommendations.map((r, i) => {
+      const rankClass = i === 0 ? 'rank-1'
+                      : i === 1 ? 'rank-2'
+                      : i === 2 ? 'rank-3' : 'rank-n';
+      const genres = (r.genres || '').split('|')
+        .slice(0,3)
+        .map(g => `<span class="genre-tag">${g.trim()}</span>`)
+        .join('');
+      const pct = maxScore > 0 ? (r.score / maxScore * 100).toFixed(0) : 0;
+      return `
+        <tr style="animation-delay:${i * 0.04}s">
+          <td><span class="rank-badge ${rankClass}">${r.rank}</span></td>
+          <td>
+            <span class="movie-title">${escHtml(r.title)}</span>
+            <div class="movie-genres">${genres}</div>
+          </td>
+          <td>
+            <div class="score-bar">
+              <div class="score-track">
+                <div class="score-fill" style="width:${pct}%"></div>
+              </div>
+              <span class="score-val">${r.score.toFixed(3)}</span>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    body.innerHTML = `
+      ${histHTML}
+      <p class="section-label">Top-${data.k} films recommandés</p>
+      <table class="rec-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Titre · Genres</th>
+            <th style="text-align:right">Score</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function showError(msg) {
+    document.getElementById('results-body').innerHTML =
+      `<div class="error-box">⚠ Erreur : ${escHtml(msg)}</div>`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+  }
+
+  // ── Touche Entrée ─────────────────────────────────────────────
+  document.getElementById('user-id')
+    .addEventListener('keydown', e => {
+      if (e.key === 'Enter') fetchRecommendations();
+    });
+</script>
+
+</body>
+</html>
