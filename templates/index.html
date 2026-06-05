@@ -3,775 +3,462 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LightGCN — Système de Recommandation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <title>LightGCN · Recommandation</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --navy:    #0a1a3e;
-      --blue:    #1a3a8f;
-      --accent:  #4f8ef7;
-      --cyan:    #00d4ff;
-      --green:   #00e676;
-      --amber:   #ffb300;
-      --red:     #ff5252;
-      --bg:      #07101f;
-      --bg2:     #0d1b30;
-      --bg3:     #112040;
-      --border:  #1e3560;
-      --text:    #e8eeff;
-      --muted:   #6a85b0;
-      --mono:    'Space Mono', monospace;
-      --sans:    'DM Sans', sans-serif;
+      --bg:       #0a0a0a;
+      --bg2:      #111111;
+      --bg3:      #181818;
+      --line:     #222222;
+      --line2:    #2e2e2e;
+      --text:     #e0e0e0;
+      --muted:    #555555;
+      --muted2:   #777777;
+      --red:      #ff3b3b;
+      --cyan:     #00e5ff;
+      --green:    #39d98a;
+      --white:    #ffffff;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: var(--sans);
+      font-family: 'IBM Plex Sans', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
       min-height: 100vh;
-      overflow-x: hidden;
     }
 
-    /* ── Grid background ── */
-    body::before {
-      content: '';
-      position: fixed; inset: 0; z-index: 0;
-      background-image:
-        linear-gradient(var(--border) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.25;
-      pointer-events: none;
-    }
-
-    /* ── HEADER ── */
-    header {
-      position: relative; z-index: 10;
-      background: linear-gradient(135deg, var(--navy) 0%, #0f2456 100%);
-      border-bottom: 1px solid var(--border);
-      padding: 0 2rem;
-    }
-    .header-inner {
-      max-width: 1200px; margin: 0 auto;
-      display: flex; align-items: center;
-      justify-content: space-between;
-      padding: 1.2rem 0;
-    }
-    .logo {
-      display: flex; align-items: center; gap: 1rem;
-    }
-    .logo-icon {
-      width: 42px; height: 42px;
-      background: linear-gradient(135deg, var(--accent), var(--cyan));
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.3rem;
-    }
-    .logo-text h1 {
-      font-family: var(--mono);
-      font-size: 1.1rem; font-weight: 700;
-      color: var(--text); letter-spacing: -0.5px;
-    }
-    .logo-text p {
-      font-size: 0.72rem; color: var(--muted);
-      font-family: var(--mono);
-    }
-    .header-badges {
-      display: flex; gap: 0.6rem; flex-wrap: wrap;
-    }
-    .badge {
-      font-family: var(--mono); font-size: 0.65rem;
-      padding: 0.25rem 0.7rem; border-radius: 20px;
-      border: 1px solid;
-    }
-    .badge-blue  { color: var(--cyan);  border-color: var(--cyan);  background: rgba(0,212,255,.08); }
-    .badge-green { color: var(--green); border-color: var(--green); background: rgba(0,230,118,.08); }
-    .badge-amber { color: var(--amber); border-color: var(--amber); background: rgba(255,179,0,.08); }
-
-    /* ── STATS BAR ── */
-    .stats-bar {
-      position: relative; z-index: 10;
-      background: var(--bg2);
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 2rem;
-    }
-    .stats-inner {
-      max-width: 1200px; margin: 0 auto;
-      display: flex; gap: 2rem; flex-wrap: wrap;
-      align-items: center;
-    }
-    .stat-item {
-      display: flex; align-items: center; gap: 0.6rem;
-    }
-    .stat-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%; background: var(--accent);
-      box-shadow: 0 0 6px var(--accent);
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity: 1; }
-      50%      { opacity: 0.4; }
-    }
-    .stat-label { font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
-    .stat-value { font-size: 0.82rem; color: var(--text);  font-family: var(--mono); font-weight: 700; }
-
-    /* ── MAIN LAYOUT ── */
-    main {
-      position: relative; z-index: 10;
-      max-width: 1200px; margin: 0 auto;
-      padding: 2rem;
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 1.5rem;
-      align-items: start;
-    }
-
-    /* ── CARD ── */
-    .card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-    }
-    .card-header {
-      padding: 1rem 1.4rem;
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 0.7rem;
-      background: linear-gradient(90deg, var(--bg3), var(--bg2));
-    }
-    .card-icon {
-      font-size: 1rem;
-      width: 32px; height: 32px;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--bg); border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    .card-title {
-      font-family: var(--mono); font-size: 0.82rem;
-      font-weight: 700; color: var(--text);
-      letter-spacing: 0.5px; text-transform: uppercase;
-    }
-    .card-body { padding: 1.4rem; }
-
-    /* ── FORM ── */
-    .form-group { margin-bottom: 1.2rem; }
-    .form-group label {
-      display: block; font-size: 0.72rem;
-      font-family: var(--mono); color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 0.5rem;
-    }
-    .form-group label span {
-      color: var(--accent); font-weight: 700;
-    }
-    .input-wrapper { position: relative; }
-    .input-wrapper input[type="number"] {
-      width: 100%; padding: 0.75rem 1rem;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; color: var(--text);
-      font-family: var(--mono); font-size: 0.9rem;
-      transition: border-color .2s, box-shadow .2s;
-      outline: none;
-      -moz-appearance: textfield;
-    }
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    .input-wrapper input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(79,142,247,.18);
-    }
-    .input-hint {
-      font-size: 0.67rem; color: var(--muted);
-      font-family: var(--mono); margin-top: 0.35rem;
-    }
-
-    /* ── SLIDER ── */
-    .slider-wrapper { position: relative; }
-    input[type="range"] {
-      width: 100%; height: 4px;
-      -webkit-appearance: none;
-      background: linear-gradient(90deg, var(--accent) 0%, var(--border) 0%);
-      border-radius: 2px; outline: none; cursor: pointer;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px; height: 18px;
-      border-radius: 50%;
-      background: var(--accent);
-      border: 2px solid var(--bg);
-      box-shadow: 0 0 8px rgba(79,142,247,.5);
-      cursor: pointer;
-    }
-    .slider-labels {
-      display: flex; justify-content: space-between;
-      font-size: 0.65rem; color: var(--muted);
-      font-family: var(--mono); margin-top: 0.4rem;
-    }
-    #k-display {
-      font-family: var(--mono); font-size: 1.4rem;
-      font-weight: 700; color: var(--accent);
-      text-align: center; display: block;
-      margin-bottom: 0.5rem;
-    }
-
-    /* ── BUTTON ── */
-    .btn-recommend {
-      width: 100%; padding: 0.9rem;
-      background: linear-gradient(135deg, var(--blue), var(--accent));
-      border: none; border-radius: 10px;
-      color: white; font-family: var(--mono);
-      font-size: 0.85rem; font-weight: 700;
-      letter-spacing: 0.5px; text-transform: uppercase;
-      cursor: pointer;
-      transition: transform .15s, box-shadow .15s, opacity .15s;
-      box-shadow: 0 4px 15px rgba(79,142,247,.3);
-      display: flex; align-items: center;
-      justify-content: center; gap: 0.6rem;
-    }
-    .btn-recommend:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 22px rgba(79,142,247,.45);
-    }
-    .btn-recommend:active { transform: translateY(0); }
-    .btn-recommend.loading { opacity: 0.7; pointer-events: none; }
-
-    /* ── QUICK USERS ── */
-    .quick-title {
-      font-size: 0.68rem; color: var(--muted);
-      font-family: var(--mono); text-transform: uppercase;
-      letter-spacing: 0.8px; margin-bottom: 0.7rem;
-      display: flex; align-items: center; gap: 0.4rem;
-    }
-    .quick-users {
-      display: flex; flex-wrap: wrap; gap: 0.45rem;
-    }
-    .quick-btn {
-      padding: 0.3rem 0.65rem;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 6px; color: var(--muted);
-      font-family: var(--mono); font-size: 0.72rem;
-      cursor: pointer; transition: all .15s;
-    }
-    .quick-btn:hover {
-      border-color: var(--accent); color: var(--accent);
-      background: rgba(79,142,247,.08);
-    }
-
-    /* ── METRICS MINI ── */
-    .metrics-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 0.8rem; margin-top: 1rem;
-    }
-    .metric-box {
+    /* TOPBAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
       background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px; padding: 0.8rem;
-      text-align: center;
+      border-bottom: 1px solid var(--line);
+      padding: 0 32px; height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .metric-box .m-val {
-      font-family: var(--mono); font-size: 1.1rem;
-      font-weight: 700; color: var(--accent);
-      display: block;
+    .topbar-left { display: flex; align-items: center; gap: 24px; }
+    .brand {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px; font-weight: 700; color: var(--white);
+      letter-spacing: .5px; display: flex; align-items: center; gap: 8px;
     }
-    .metric-box .m-lbl {
-      font-size: 0.65rem; color: var(--muted);
-      font-family: var(--mono); margin-top: 0.2rem;
+    .brand-dot {
+      width: 8px; height: 8px; background: var(--red);
+      border-radius: 50%; box-shadow: 0 0 8px var(--red);
     }
+    .topbar-nav { display: flex; gap: 2px; }
+    .nav-item {
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+      color: var(--muted); padding: 4px 10px; border-radius: 4px;
+      cursor: pointer; transition: color .15s, background .15s; text-decoration: none;
+    }
+    .nav-item:hover { color: var(--text); background: var(--bg3); }
+    .nav-item.active { color: var(--cyan); }
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+    .badge {
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+      padding: 3px 8px; border-radius: 3px;
+      border: 1px solid var(--line2); color: var(--muted2);
+    }
+    .status-dot {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--green);
+    }
+    .status-dot::before {
+      content: ''; width: 6px; height: 6px; background: var(--green);
+      border-radius: 50%; animation: pulse 2s ease infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ── RESULTS PANEL ── */
-    #results-panel { min-height: 300px; }
+    /* LAYOUT */
+    .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 52px); }
 
-    .empty-state {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 4rem 2rem; text-align: center;
+    /* SIDEBAR */
+    .sidebar {
+      border-right: 1px solid var(--line); padding: 24px 0;
+      position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto;
     }
-    .empty-icon {
-      font-size: 3rem; margin-bottom: 1rem;
-      opacity: 0.4;
+    .sidebar-section { margin-bottom: 28px; }
+    .sidebar-label {
+      font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 2px;
+      color: var(--muted); padding: 0 20px; margin-bottom: 8px;
     }
-    .empty-state h3 {
-      font-family: var(--mono); font-size: 0.9rem;
-      color: var(--muted); margin-bottom: 0.4rem;
+    .sidebar-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 20px; font-size: 13px; color: var(--muted2);
+      cursor: pointer; transition: color .15s, background .15s;
     }
-    .empty-state p { font-size: 0.8rem; color: var(--muted); opacity: 0.7; }
+    .sidebar-item:hover { color: var(--text); background: var(--bg3); }
+    .sidebar-item.active { color: var(--white); background: var(--bg3); border-left: 2px solid var(--cyan); }
+    .sidebar-item-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+    .divider { height: 1px; background: var(--line); margin: 8px 20px; }
+    .meta-block {
+      padding: 16px 20px; background: var(--bg2); margin: 0 12px;
+      border-radius: 6px; border: 1px solid var(--line);
+    }
+    .meta-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+    .meta-key { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); }
+    .meta-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--cyan); }
 
-    /* ── HISTORY ── */
-    .history-section { margin-bottom: 1.5rem; }
-    .section-label {
-      font-family: var(--mono); font-size: 0.68rem;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: 1px;
-      display: flex; align-items: center; gap: 0.5rem;
-      margin-bottom: 0.8rem;
-    }
-    .section-label::after {
-      content: '';
-      flex: 1; height: 1px;
-      background: var(--border);
-    }
-    .history-chips {
-      display: flex; flex-wrap: wrap; gap: 0.45rem;
-    }
-    .history-chip {
-      padding: 0.3rem 0.8rem;
-      background: rgba(0,212,255,.07);
-      border: 1px solid rgba(0,212,255,.25);
-      border-radius: 20px; font-size: 0.72rem;
-      color: var(--cyan);
-      font-family: var(--sans);
-      max-width: 200px;
-      white-space: nowrap; overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    /* MAIN */
+    .main { padding: 32px 40px; max-width: 900px; }
+    .page-title { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+    .page-heading { font-size: 22px; font-weight: 600; color: var(--white); margin-bottom: 28px; letter-spacing: -.3px; }
 
-    /* ── REC TABLE ── */
-    .rec-table {
-      width: 100%;
-      border-collapse: collapse;
+    /* INPUT PANEL */
+    .input-panel {
+      background: var(--bg2); border: 1px solid var(--line);
+      border-radius: 8px; overflow: hidden; margin-bottom: 28px;
     }
-    .rec-table thead tr {
-      border-bottom: 1px solid var(--border);
+    .input-panel-header {
+      background: var(--bg3); border-bottom: 1px solid var(--line);
+      padding: 10px 18px; display: flex; align-items: center; gap: 8px;
     }
-    .rec-table th {
-      font-family: var(--mono); font-size: 0.65rem;
-      color: var(--muted); text-transform: uppercase;
-      letter-spacing: 0.8px; padding: 0 0.7rem 0.7rem;
-      text-align: left; font-weight: 400;
+    .window-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .wd-red    { background: #ff5f56; }
+    .wd-yellow { background: #ffbd2e; }
+    .wd-green  { background: #27c93f; }
+    .panel-title-text { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); margin-left: 6px; }
+    .input-body { padding: 24px; }
+    .field-row { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+    .field label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .field input, .field select {
+      background: var(--bg); border: 1px solid var(--line2); border-radius: 5px;
+      color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+      padding: 10px 14px; outline: none; transition: border-color .2s; width: 100%; appearance: none;
     }
-    .rec-table th:last-child { text-align: right; }
-    .rec-table tbody tr {
-      border-bottom: 1px solid rgba(30,53,96,.5);
-      transition: background .15s;
-      animation: rowIn .3s ease both;
+    .field input:focus, .field select:focus { border-color: var(--cyan); }
+    .field select option { background: var(--bg2); }
+    .run-btn {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--white); color: var(--bg); border: none; border-radius: 5px;
+      padding: 10px 22px; font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: opacity .15s, transform .15s; align-self: flex-end; white-space: nowrap;
     }
-    @keyframes rowIn {
-      from { opacity: 0; transform: translateX(-8px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-    .rec-table tbody tr:hover {
-      background: rgba(79,142,247,.06);
-    }
-    .rec-table td {
-      padding: 0.7rem; font-size: 0.82rem;
-    }
-    .rank-badge {
-      display: inline-flex; align-items: center;
-      justify-content: center;
-      width: 26px; height: 26px;
-      border-radius: 6px;
-      font-family: var(--mono); font-size: 0.72rem;
-      font-weight: 700;
-    }
-    .rank-1 { background: rgba(255,179,0,.2); color: var(--amber); border: 1px solid rgba(255,179,0,.4); }
-    .rank-2 { background: rgba(200,200,200,.15); color: #b0bec5; border: 1px solid rgba(176,190,197,.3); }
-    .rank-3 { background: rgba(205,127,50,.15); color: #cd7f32; border: 1px solid rgba(205,127,50,.3); }
-    .rank-n { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+    .run-btn:hover   { opacity: .88; transform: translateY(-1px); }
+    .run-btn:active  { transform: translateY(0); }
+    .run-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
 
-    .movie-title {
-      font-weight: 500; color: var(--text);
-      display: block; max-width: 280px;
+    /* STATUS */
+    .status-bar {
+      display: none; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--bg3); border-top: 1px solid var(--line);
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2);
     }
-    .movie-genres {
-      font-size: 0.68rem; color: var(--muted);
-      margin-top: 0.15rem;
-      display: flex; flex-wrap: wrap; gap: 0.3rem;
-    }
-    .genre-tag {
-      padding: 0.1rem 0.4rem;
-      background: rgba(79,142,247,.1);
-      border: 1px solid rgba(79,142,247,.2);
-      border-radius: 3px; font-size: 0.62rem;
-      color: var(--accent);
-    }
-
-    .score-bar {
-      display: flex; align-items: center; gap: 0.6rem;
-      justify-content: flex-end;
-    }
-    .score-track {
-      width: 60px; height: 4px;
-      background: var(--border); border-radius: 2px;
-      overflow: hidden;
-    }
-    .score-fill {
-      height: 100%; border-radius: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--cyan));
-      transition: width .6s ease;
-    }
-    .score-val {
-      font-family: var(--mono); font-size: 0.72rem;
-      color: var(--muted); min-width: 40px; text-align: right;
-    }
-
-    /* ── LOADING SPINNER ── */
+    .status-bar.active { display: flex; }
     .spinner {
-      display: inline-block;
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
+      width: 12px; height: 12px; border: 1.5px solid var(--line2);
+      border-top-color: var(--cyan); border-radius: 50%; animation: spin .6s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── API BOX ── */
-    .api-box {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px; padding: 1rem;
-      margin-top: 1rem;
+    .error-bar {
+      display: none; padding: 10px 14px;
+      background: rgba(255,59,59,.06); border-top: 1px solid rgba(255,59,59,.2);
+      font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--red);
     }
-    .api-box pre {
-      font-family: var(--mono); font-size: 0.72rem;
-      color: var(--cyan); white-space: pre-wrap;
-      word-break: break-all; line-height: 1.6;
+    .error-bar.active { display: block; }
+
+    /* RESULTS */
+    #results { display: none; }
+    #results.active { display: block; }
+
+    .user-strip {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; background: var(--bg2); border: 1px solid var(--line);
+      border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+    }
+    .user-strip-left { display: flex; align-items: center; gap: 12px; }
+    .uid-box {
+      font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 700;
+      color: var(--white); background: var(--bg3); border: 1px solid var(--line2);
+      border-radius: 6px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+    }
+    .user-meta h3 { font-size: 14px; font-weight: 600; color: var(--white); }
+    .user-meta p  { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .user-strip-right { display: flex; gap: 20px; }
+    .mini-stat { text-align: right; }
+    .mini-stat-val { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 700; color: var(--cyan); }
+    .mini-stat-lbl { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+
+    .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .section-head-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+    .section-head-line { flex: 1; height: 1px; background: var(--line); }
+
+    .history-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
+    .history-pill {
+      font-size: 12px; color: var(--muted2); background: var(--bg2);
+      border: 1px solid var(--line); border-radius: 4px; padding: 4px 10px;
+      font-family: 'IBM Plex Mono', monospace; white-space: nowrap;
+      max-width: 260px; overflow: hidden; text-overflow: ellipsis;
     }
 
-    /* ── ERROR ── */
-    .error-box {
-      background: rgba(255,82,82,.1);
-      border: 1px solid rgba(255,82,82,.3);
-      border-radius: 8px; padding: 1rem;
-      color: var(--red); font-family: var(--mono);
-      font-size: 0.8rem;
+    /* TABLE */
+    .rec-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+    .rec-table thead tr { border-bottom: 1px solid var(--line2); }
+    .rec-table th {
+      font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted);
+      padding: 8px 12px; text-align: left; font-weight: 400;
+    }
+    .rec-table tbody tr {
+      border-bottom: 1px solid var(--line);
+      transition: background .12s; animation: rowIn .3s ease both;
+    }
+    .rec-table tbody tr:hover { background: var(--bg2); }
+    @keyframes rowIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+    .rec-table td { padding: 11px 12px; vertical-align: middle; }
+    .col-rank { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); width: 40px; }
+    .col-title { font-size: 13px; color: var(--white); font-weight: 500; }
+    .col-genres { width: 200px; }
+    .genre-pill {
+      display: inline-block; font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
+      color: var(--muted2); border: 1px solid var(--line2); border-radius: 3px;
+      padding: 2px 5px; margin: 2px 2px 2px 0;
+    }
+    .col-score { width: 140px; }
+    .score-wrap { display: flex; align-items: center; gap: 8px; }
+    .score-track { flex: 1; height: 2px; background: var(--line2); border-radius: 2px; overflow: hidden; }
+    .score-fill { height: 100%; background: var(--cyan); border-radius: 2px; transition: width .5s ease; }
+    .score-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted2); min-width: 40px; text-align: right; }
+
+    /* FOOTER */
+    .footer {
+      border-top: 1px solid var(--line); padding: 14px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted);
     }
 
-    /* ── FOOTER ── */
-    footer {
-      position: relative; z-index: 10;
-      text-align: center; padding: 1.5rem 2rem;
-      border-top: 1px solid var(--border);
-      color: var(--muted); font-size: 0.72rem;
-      font-family: var(--mono);
-    }
-    footer span { color: var(--accent); }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 800px) {
-      main { grid-template-columns: 1fr; }
+    @media (max-width: 700px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 20px 16px; }
+      .topbar { padding: 0 16px; }
+      .topbar-nav { display: none; }
     }
   </style>
 </head>
 <body>
 
-<!-- ══ HEADER ════════════════════════════════════════════════════ -->
-<header>
-  <div class="header-inner">
-    <div class="logo">
-      <div class="logo-icon">🔮</div>
-      <div class="logo-text">
-        <h1>LightGCN Recommender</h1>
-        <p>ENSPY · AIA4 · Prof. M. Bitha · 24P817</p>
-      </div>
-    </div>
-    <div class="header-badges">
-      <span class="badge badge-blue">LightGCN K=3</span>
-      <span class="badge badge-green">MovieLens</span>
-      <span class="badge badge-amber">Flask API</span>
-    </div>
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand"><div class="brand-dot"></div>LightGCN</div>
+    <nav class="topbar-nav">
+      <a class="nav-item active">recommander</a>
+      <a class="nav-item" href="/users">utilisateurs</a>
+    </nav>
   </div>
-</header>
-
-<!-- ══ STATS BAR ══════════════════════════════════════════════════ -->
-<div class="stats-bar">
-  <div class="stats-inner">
-    <div class="stat-item">
-      <div class="stat-dot"></div>
-      <span class="stat-label">Statut</span>
-      <span class="stat-value" style="color:var(--green)">EN LIGNE</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Utilisateurs :</span>
-      <span class="stat-value">{{ "{:,}".format(n_users) }}</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Films :</span>
-      <span class="stat-value">{{ "{:,}".format(n_items) }}</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Paramètres :</span>
-      <span class="stat-value">{{ "{:,}".format(n_params) }}</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">Recall@10 :</span>
-      <span class="stat-value" style="color:var(--cyan)">0.1051</span>
-    </div>
-    <div class="stat-item">
-      <span class="stat-label">NDCG@10 :</span>
-      <span class="stat-value" style="color:var(--cyan)">0.1650</span>
-    </div>
+  <div class="topbar-right">
+    <div class="badge">MovieLens · small</div>
+    <div class="status-dot">model loaded</div>
   </div>
 </div>
 
-<!-- ══ MAIN ═══════════════════════════════════════════════════════ -->
-<main>
-
-  <!-- ── PANNEAU GAUCHE ── -->
-  <div>
-
-    <!-- Formulaire -->
-    <div class="card" style="margin-bottom:1.2rem">
-      <div class="card-header">
-        <div class="card-icon">🎯</div>
-        <span class="card-title">Paramètres</span>
-      </div>
-      <div class="card-body">
-
-        <div class="form-group">
-          <label>ID Utilisateur <span id="uid-span">(0 – {{ n_users - 1 }})</span></label>
-          <div class="input-wrapper">
-            <input type="number" id="user-id" value="0"
-                   min="0" max="{{ n_users - 1 }}" placeholder="Ex: 42"/>
-          </div>
-          <p class="input-hint">→ Correspond à l'index interne de l'utilisateur</p>
-        </div>
-
-        <div class="form-group">
-          <label>Nombre de recommandations (K)</label>
-          <span id="k-display">10</span>
-          <div class="slider-wrapper">
-            <input type="range" id="k-slider" min="1" max="50" value="10"/>
-          </div>
-          <div class="slider-labels">
-            <span>1</span><span>10</span><span>25</span><span>50</span>
-          </div>
-        </div>
-
-        <button class="btn-recommend" id="btn-recommend" onclick="fetchRecommendations()">
-          <span id="btn-text">⚡ Générer les recommandations</span>
-        </button>
-
-        <div style="margin-top:1.2rem">
-          <p class="quick-title">⚡ Utilisateurs rapides</p>
-          <div class="quick-users" id="quick-users">
-            <!-- généré par JS -->
-          </div>
-        </div>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Dataset</div>
+      <div class="sidebar-item active"><span>ratings.csv</span><span class="sidebar-item-num">100k</span></div>
+      <div class="sidebar-item"><span>movies.csv</span><span class="sidebar-item-num">9.7k</span></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Architecture</div>
+      <div class="sidebar-item"><span>embedding dim</span><span class="sidebar-item-num">64</span></div>
+      <div class="sidebar-item"><span>GCN layers</span><span class="sidebar-item-num">3</span></div>
+      <div class="sidebar-item"><span>dropout</span><span class="sidebar-item-num">0.1</span></div>
+      <div class="sidebar-item"><span>loss</span><span class="sidebar-item-num">BPR</span></div>
+    </div>
+    <div class="divider"></div>
+    <div class="sidebar-section">
+      <div class="meta-block">
+        <div class="meta-row"><span class="meta-key">utilisateurs</span><span class="meta-val">{{ total_users }}</span></div>
+        <div class="meta-row"><span class="meta-key">films</span><span class="meta-val">{{ total_items }}</span></div>
+        <div class="meta-row"><span class="meta-key">device</span><span class="meta-val">cpu</span></div>
+        <div class="meta-row"><span class="meta-key">params</span><span class="meta-val">510k</span></div>
       </div>
     </div>
+  </aside>
 
-    <!-- Métriques du modèle -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-icon">📊</div>
-        <span class="card-title">Performances du modèle</span>
+  <main class="main">
+    <div class="page-title">// recommandation · top-k</div>
+    <div class="page-heading">Générer des recommandations</div>
+
+    <div class="input-panel">
+      <div class="input-panel-header">
+        <div class="window-dot wd-red"></div>
+        <div class="window-dot wd-yellow"></div>
+        <div class="window-dot wd-green"></div>
+        <span class="panel-title-text">recommend.py</span>
       </div>
-      <div class="card-body">
-        <p style="font-size:.75rem;color:var(--muted);line-height:1.6;margin-bottom:.5rem">
-          Évalué sur MovieLens small — split 80/20 stratifié par utilisateur.
-        </p>
-        <div class="metrics-grid">
-          <div class="metric-box">
-            <span class="m-val">0.1051</span>
-            <span class="m-lbl">Recall@10</span>
+      <div class="input-body">
+        <div class="field-row">
+          <div class="field">
+            <label>user_id · MovieLens</label>
+            <input type="number" id="user-id" placeholder="1 – {{ total_users }}" min="1" value="1"/>
           </div>
-          <div class="metric-box">
-            <span class="m-val">0.1650</span>
-            <span class="m-lbl">NDCG@10</span>
+          <div class="field" style="max-width:130px;">
+            <label>top_k</label>
+            <select id="top-k">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
           </div>
-          <div class="metric-box">
-            <span class="m-val">0.1546</span>
-            <span class="m-lbl">Recall@20</span>
-          </div>
-          <div class="metric-box">
-            <span class="m-val">0.1702</span>
-            <span class="m-lbl">NDCG@20</span>
-          </div>
-        </div>
-        <div class="api-box" style="margin-top:1rem">
-          <p style="font-family:var(--mono);font-size:.65rem;color:var(--muted);
-                    text-transform:uppercase;letter-spacing:.8px;margin-bottom:.5rem">
-            Endpoint API REST
-          </p>
-          <pre>GET  /api/recommend?user_id=0&k=10
-POST /api/recommend
-     {"user_id": 0, "k": 10}
-
-GET  /api/stats
-GET  /api/users?limit=20</pre>
+          <button class="run-btn" id="run-btn" onclick="recommend()">
+            <span>▶</span> Run
+          </button>
         </div>
       </div>
+      <div class="status-bar" id="status-bar">
+        <div class="spinner"></div>
+        propagation des embeddings...
+      </div>
+      <div class="error-bar" id="error-bar"></div>
     </div>
 
-  </div>
-
-  <!-- ── PANNEAU DROIT ── -->
-  <div class="card" id="results-panel">
-    <div class="card-header">
-      <div class="card-icon">🎬</div>
-      <span class="card-title" id="results-title">Recommandations</span>
-      <span id="results-badge" style="margin-left:auto;font-family:var(--mono);
-            font-size:.65rem;color:var(--muted)"></span>
-    </div>
-    <div class="card-body" id="results-body">
-
-      <!-- État initial -->
-      <div class="empty-state" id="empty-state">
-        <div class="empty-icon">🎬</div>
-        <h3>Aucune recommandation encore</h3>
-        <p>Saisissez un ID utilisateur et cliquez sur<br/>"Générer les recommandations"</p>
+    <div id="results">
+      <div class="user-strip">
+        <div class="user-strip-left">
+          <div class="uid-box" id="uid-box">?</div>
+          <div class="user-meta">
+            <h3 id="res-title">Utilisateur</h3>
+            <p id="res-sub">index interne · —</p>
+          </div>
+        </div>
+        <div class="user-strip-right">
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="res-k">—</div>
+            <div class="mini-stat-lbl">top-k</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="res-seen">—</div>
+            <div class="mini-stat-lbl">films vus</div>
+          </div>
+        </div>
       </div>
 
-    </div>
-  </div>
+      <div class="section-head">
+        <span class="section-head-label">historique</span>
+        <div class="section-head-line"></div>
+      </div>
+      <div class="history-list" id="history-list"></div>
 
-</main>
-
-<!-- ══ FOOTER ═════════════════════════════════════════════════════ -->
-<footer>
-  <span>Kenné Takoudjou Franck Manuel</span> · Matricule 24P817 · AIA4 ·
-  ENSPY Yaoundé · Cours IA et Applications · Prof. <span>M. Bitha</span>
-</footer>
-
-<!-- ══ SCRIPT ════════════════════════════════════════════════════ -->
-<script>
-  // ── Slider K ──────────────────────────────────────────────────
-  const slider   = document.getElementById('k-slider');
-  const kDisplay = document.getElementById('k-display');
-  slider.addEventListener('input', () => {
-    kDisplay.textContent = slider.value;
-    // mise à jour dégradé
-    const pct = (slider.value - 1) / 49 * 100;
-    slider.style.background =
-      `linear-gradient(90deg, var(--accent) ${pct}%, var(--border) ${pct}%)`;
-  });
-
-  // ── Boutons rapides ───────────────────────────────────────────
-  const quickIds = [0, 3, 7, 15, 42, 99, 150, 200];
-  const qc = document.getElementById('quick-users');
-  quickIds.forEach(id => {
-    const btn = document.createElement('button');
-    btn.className = 'quick-btn';
-    btn.textContent = `#${id}`;
-    btn.onclick = () => {
-      document.getElementById('user-id').value = id;
-      fetchRecommendations();
-    };
-    qc.appendChild(btn);
-  });
-
-  // ── Fetch recommandations ─────────────────────────────────────
-  async function fetchRecommendations() {
-    const userId = parseInt(document.getElementById('user-id').value);
-    const k      = parseInt(slider.value);
-    const btn    = document.getElementById('btn-recommend');
-    const btnTxt = document.getElementById('btn-text');
-
-    // Loading state
-    btn.classList.add('loading');
-    btnTxt.innerHTML = '<span class="spinner"></span> Calcul en cours...';
-    document.getElementById('empty-state') &&
-      document.getElementById('empty-state').remove();
-
-    try {
-      const resp = await fetch(`/api/recommend?user_id=${userId}&k=${k}`);
-      const data = await resp.json();
-
-      if (!resp.ok) {
-        showError(data.error || 'Erreur inconnue');
-        return;
-      }
-
-      renderResults(data);
-
-    } catch (err) {
-      showError('Impossible de contacter le serveur Flask : ' + err.message);
-    } finally {
-      btn.classList.remove('loading');
-      btnTxt.innerHTML = '⚡ Générer les recommandations';
-    }
-  }
-
-  // ── Affichage des résultats ───────────────────────────────────
-  function renderResults(data) {
-    const body  = document.getElementById('results-body');
-    const title = document.getElementById('results-title');
-    const badge = document.getElementById('results-badge');
-
-    title.textContent = `Recommandations — Utilisateur #${data.user_id}`;
-    badge.textContent = `Top-${data.k} films`;
-
-    // Historique
-    let histHTML = '';
-    if (data.history_sample && data.history_sample.length) {
-      histHTML = `
-        <div class="history-section">
-          <p class="section-label">Films déjà vus (échantillon)</p>
-          <div class="history-chips">
-            ${data.history_sample.map(h =>
-              `<span class="history-chip" title="${h.genres}">${h.title}</span>`
-            ).join('')}
-          </div>
-        </div>`;
-    }
-
-    // Tableau de recommandations
-    const maxScore = Math.max(...data.recommendations.map(r => r.score));
-    const rows = data.recommendations.map((r, i) => {
-      const rankClass = i === 0 ? 'rank-1'
-                      : i === 1 ? 'rank-2'
-                      : i === 2 ? 'rank-3' : 'rank-n';
-      const genres = (r.genres || '').split('|')
-        .slice(0,3)
-        .map(g => `<span class="genre-tag">${g.trim()}</span>`)
-        .join('');
-      const pct = maxScore > 0 ? (r.score / maxScore * 100).toFixed(0) : 0;
-      return `
-        <tr style="animation-delay:${i * 0.04}s">
-          <td><span class="rank-badge ${rankClass}">${r.rank}</span></td>
-          <td>
-            <span class="movie-title">${escHtml(r.title)}</span>
-            <div class="movie-genres">${genres}</div>
-          </td>
-          <td>
-            <div class="score-bar">
-              <div class="score-track">
-                <div class="score-fill" style="width:${pct}%"></div>
-              </div>
-              <span class="score-val">${r.score.toFixed(3)}</span>
-            </div>
-          </td>
-        </tr>`;
-    }).join('');
-
-    body.innerHTML = `
-      ${histHTML}
-      <p class="section-label">Top-${data.k} films recommandés</p>
+      <div class="section-head">
+        <span class="section-head-label">recommandations</span>
+        <div class="section-head-line"></div>
+      </div>
       <table class="rec-table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Titre · Genres</th>
-            <th style="text-align:right">Score</th>
+            <th>#</th><th>titre</th><th>genres</th><th>score</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+        <tbody id="rec-tbody"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div class="footer">
+  <span>ENSPY · ANI-IA 4 · 2025–2026</span>
+  <span>LightGCN · PyTorch · <span style="color:#e0e0e0">Flask</span></span>
+</div>
+
+<script>
+  async function recommend() {
+    const userId = parseInt(document.getElementById('user-id').value);
+    const k      = parseInt(document.getElementById('top-k').value);
+    const btn    = document.getElementById('run-btn');
+    const status = document.getElementById('status-bar');
+    const errBar = document.getElementById('error-bar');
+    const results= document.getElementById('results');
+
+    if (isNaN(userId) || userId < 1) { showError('user_id invalide.'); return; }
+
+    btn.disabled = true;
+    status.classList.add('active');
+    errBar.classList.remove('active');
+    results.classList.remove('active');
+
+    try {
+      const res  = await fetch('/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, k })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(data.error || 'Erreur serveur.'); return; }
+      render(data, k);
+    } catch(e) {
+      showError('Impossible de joindre le serveur Flask.');
+    } finally {
+      btn.disabled = false;
+      status.classList.remove('active');
+    }
+  }
+
+  function render(data, k) {
+    document.getElementById('uid-box').textContent   = String(data.user_real_id).slice(-2);
+    document.getElementById('res-title').textContent = `Utilisateur #${data.user_real_id}`;
+    document.getElementById('res-sub').textContent   = `idx interne : ${data.user_idx}`;
+    document.getElementById('res-k').textContent     = k;
+    document.getElementById('res-seen').textContent  = data.history.length;
+
+    const hl = document.getElementById('history-list');
+    hl.innerHTML = '';
+    (data.history.length ? data.history : ['aucun historique']).forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'history-pill'; el.textContent = t; el.title = t;
+      hl.appendChild(el);
+    });
+
+    const scores = data.recommendations.map(r => r.score);
+    const maxS = Math.max(...scores), minS = Math.min(...scores);
+    const range = maxS - minS || 1;
+
+    const tbody = document.getElementById('rec-tbody');
+    tbody.innerHTML = '';
+    data.recommendations.forEach((rec, i) => {
+      const pct    = Math.round(((rec.score - minS) / range) * 100);
+      const genres = (rec.genres || []).slice(0, 3).map(g => `<span class="genre-pill">${g}</span>`).join('');
+      const tr = document.createElement('tr');
+      tr.style.animationDelay = `${i * 30}ms`;
+      tr.innerHTML = `
+        <td class="col-rank">${String(rec.rang).padStart(2,'0')}</td>
+        <td class="col-title">${rec.titre}</td>
+        <td class="col-genres">${genres || '<span class="genre-pill">—</span>'}</td>
+        <td class="col-score">
+          <div class="score-wrap">
+            <div class="score-track"><div class="score-fill" style="width:${pct}%"></div></div>
+            <span class="score-num">${rec.score.toFixed(3)}</span>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById('results').classList.add('active');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
   }
 
   function showError(msg) {
-    document.getElementById('results-body').innerHTML =
-      `<div class="error-box">⚠ Erreur : ${escHtml(msg)}</div>`;
+    const b = document.getElementById('error-bar');
+    b.textContent = '× ' + msg; b.classList.add('active');
   }
 
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;');
-  }
-
-  // ── Touche Entrée ─────────────────────────────────────────────
-  document.getElementById('user-id')
-    .addEventListener('keydown', e => {
-      if (e.key === 'Enter') fetchRecommendations();
-    });
+  document.getElementById('user-id').addEventListener('keydown', e => {
+    if (e.key === 'Enter') recommend();
+  });
 </script>
-
 </body>
 </html>
