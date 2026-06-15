@@ -1,0 +1,491 @@
+\documentclass[12pt,a4paper]{report}
+
+%% ─── Packages ───────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[top=2cm,bottom=2cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{booktabs}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+
+%% ─── Couleurs ───────────────────────────────────────────────────────
+\definecolor{Navy}{RGB}{10,36,99}
+\definecolor{Steel}{RGB}{70,130,180}
+\definecolor{DGreen}{RGB}{0,110,55}
+\definecolor{CodeBg}{RGB}{248,249,252}
+
+%% ─── Code listings ──────────────────────────────────────────────────
+\lstdefinestyle{mystyle}{
+  language=Python,
+  backgroundcolor=\color{CodeBg},
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{Navy}\bfseries,
+  stringstyle=\color{DGreen},
+  commentstyle=\color{gray}\itshape,
+  breaklines=true,
+  tabsize=2,
+  numbers=left,
+  numberstyle=\tiny,
+}
+\lstset{style=mystyle}
+
+%% ─── Headers ────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textbf{LightGCN - Recommandation}}
+\fancyhead[R]{\small Kenné Takoudjou — 24P817}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+%% ═════════════════════════════════════════════════════════════════════
+\begin{document}
+
+%% ════════════════════════════════════════════════════════════════════
+%%  PAGE DE TITRE SIMPLE
+%% ════════════════════════════════════════════════════════════════════
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+
+{\Large\bfseries\color{Navy}
+  ÉCOLE NATIONALE SUPÉRIEURE POLYTECHNIQUE DE YAOUNDÉ\\
+  ENSPY — Université de Yaoundé I
+}
+
+\vspace{2cm}
+{\color{gray}\hrule}
+
+\vspace{2cm}
+{\Huge\bfseries\color{Navy}
+  Système de Recommandation\\
+  avec LightGCN
+}
+
+\vspace{0.5cm}
+{\Large\color{Steel}
+  Graph Convolutional Networks pour MovieLens
+}
+
+\vspace{2cm}
+{\color{gray}\hrule}
+
+\vspace{3cm}
+
+\begin{tabular}{ll}
+  \textbf{Étudiant :}     & Kenné Takoudjou Franck Manuel \\
+  \textbf{Matricule :}    & 24P817 \\
+  \textbf{Classe :}       & AIA4 — Art et Intelligence Artificielle \\
+  \textbf{Professeur :}   & M. Bitha \\
+  \textbf{Année :}        & 2025/2026 \\
+\end{tabular}
+
+\vfill
+{\small\color{gray}\today}
+
+\end{titlepage}
+
+%% ════════════════════════════════════════════════════════════════════
+%%  RÉSUMÉ EXÉCUTIF
+%% ════════════════════════════════════════════════════════════════════
+\newpage
+\section*{Résumé exécutif}
+\addcontentsline{toc}{section}{Résumé exécutif}
+
+Ce projet implémente un système complet de recommandation de films basé sur
+\textbf{LightGCN} (Light Graph Convolutional Networks), un modèle de deep
+learning pour graphes bipartis. Le système utilise le dataset \textbf{MovieLens
+small} contenant 610 utilisateurs et 9 724 films.
+
+\begin{center}
+\begin{tcolorbox}[colback=yellow!10,colframe=Navy,arc=3pt,boxrule=1pt]
+\textbf{Résultats clés :}
+\begin{itemize}
+  \item Recall@10 = \textbf{0.1187}
+  \item NDCG@20 = \textbf{0.1943}
+  \item 510 208 paramètres apprenables
+  \item Temps d'entraînement : 572 secondes (30 époques)
+\end{itemize}
+\end{tcolorbox}
+\end{center}
+
+\tableofcontents
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 1 — INTRODUCTION
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Introduction}
+
+\section{Motivation}
+
+Les systèmes de recommandation sont essentiels pour les plateformes en ligne
+(streaming, e-commerce, réseaux sociaux). Deux approches dominent :
+
+\begin{itemize}
+  \item \textbf{Filtrage basé contenu} : recommande des items similaires aux
+        préférences passées
+  \item \textbf{Filtrage collaboratif} : exploite les interactions collectives
+        pour découvrir des patterns cachés
+\end{itemize}
+
+LightGCN combine le filtrage collaboratif avec les réseaux de neurones
+convolutifs sur graphes, offrant une approche élégante et efficace.
+
+\section{Objectifs du projet}
+
+\begin{enumerate}
+  \item Construire un graphe biparti utilisateur-film
+  \item Implémenter LightGCN avec propagation multicouches
+  \item Entraîner le modèle avec la perte BPR
+  \item Évaluer les performances (Recall@K, NDCG@K)
+  \item Déployer une API REST avec Flask
+\end{enumerate}
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 2 — FONDEMENTS THÉORIQUES
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Fondements théoriques}
+
+\section{Architecture LightGCN}
+
+\subsection{Graphe biparti utilisateur-item}
+
+Les interactions forment un graphe $\mathcal{G} = (\mathcal{U} \cup \mathcal{I},
+\mathcal{E})$ où :
+\begin{itemize}
+  \item $\mathcal{U}$ : ensemble des utilisateurs ($N = 609$)
+  \item $\mathcal{I}$ : ensemble des films ($M = 7\,363$)
+  \item $(u,i) \in \mathcal{E}$ : si l'utilisateur $u$ a noté le film $i \geq 3.5$
+\end{itemize}
+
+\subsection{Matrice d'adjacence normalisée}
+
+La matrice d'adjacence bipartite est :
+\begin{equation}
+  \mathbf{A} = \begin{pmatrix} \mathbf{0}_{N\times N} & \mathbf{R} \\
+                               \mathbf{R}^\top & \mathbf{0}_{M\times M}
+              \end{pmatrix}
+\end{equation}
+
+Après normalisation symétrique : $\tilde{\mathbf{A}} = \mathbf{D}^{-1/2}
+\mathbf{A} \mathbf{D}^{-1/2}$ où $\mathbf{D}$ est la matrice des degrés.
+
+\subsection{Propagation de messages}
+
+À chaque couche $k$, les embeddings se propagent via :
+\begin{equation}
+  \mathbf{E}^{(k+1)} = \tilde{\mathbf{A}} \cdot \mathbf{E}^{(k)}
+\end{equation}
+
+Les embeddings finals sont obtenus par agrégation moyenne sur $K+1$ couches :
+\begin{equation}
+  \mathbf{e}^* = \frac{1}{K+1}\sum_{k=0}^{K}\mathbf{e}^{(k)}
+\end{equation}
+
+\subsection{Score de prédiction et perte BPR}
+
+Score d'affinité :
+\begin{equation}
+  \hat{y}_{ui} = {\mathbf{e}_u^*}^\top \mathbf{e}_i^*
+\end{equation}
+
+Perte d'entraînement (BPR) :
+\begin{equation}
+  \mathcal{L} = -\sum \ln\sigma(\hat{y}_{ui^+} - \hat{y}_{ui^-}) + \lambda\|\Theta\|_2^2
+\end{equation}
+
+\subsection{Avantages de LightGCN}
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Caractéristique} & \textbf{GCN} & \textbf{LightGCN} \\
+\midrule
+Transformations linéaires & ✓ & ✗ \\
+Fonctions d'activation & ✓ & ✗ \\
+Self-connections & ✓ & ✗ \\
+Nombre de paramètres & $O(N \cdot d \cdot K)$ & $O((N+M) \cdot d)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+LightGCN supprime les éléments non essentiels, réduisant drastiquement les
+paramètres tout en améliorant les performances.
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 3 — MISE EN ŒUVRE
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Mise en \oe{}uvre}
+
+\section{Préparation des données}
+
+\subsection{Dataset MovieLens small}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Métrique} & \textbf{Valeur} \\
+\midrule
+Ratings total & 100\,836 \\
+Ratings filtrés ($\geq 3.5$) & 61\,716 \\
+Utilisateurs & 609 \\
+Films & 7\,363 \\
+Densité & 1.38\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Splits train/test}
+
+Split stratifié par utilisateur : 80\% train / 20\% test.
+
+\begin{itemize}
+  \item \textbf{Train} : 49\,619 interactions
+  \item \textbf{Test} : 12\,097 interactions
+  \item \textbf{Utilisateurs avec test} : 604
+\end{itemize}
+
+\section{Architecture du modèle}
+
+\begin{lstlisting}[caption=Classe LightGCN simplifié]
+class LightGCN(nn.Module):
+  def __init__(self, n_users, n_items, embed_dim, n_layers, adj):
+    super().__init__()
+    self.adj = adj
+    self.n_layers = n_layers
+    self.user_embed = nn.Embedding(n_users, embed_dim)
+    self.item_embed = nn.Embedding(n_items, embed_dim)
+    nn.init.xavier_uniform_(self.user_embed.weight)
+    nn.init.xavier_uniform_(self.item_embed.weight)
+
+  def propagate(self):
+    E = torch.cat([self.user_embed.weight,
+                   self.item_embed.weight], dim=0)
+    embs = [E]
+    for _ in range(self.n_layers):
+      E = torch.sparse.mm(self.adj, E)
+      embs.append(E)
+    return torch.stack(embs, dim=1).mean(dim=1)
+
+  def recommend(self, users):
+    all_e = self.propagate()
+    return all_e[users] @ all_e[self.n_users:].T
+\end{lstlisting}
+
+\subsection{Hyperparamètres}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Hyperparamètre} & \textbf{Valeur} & \textbf{Raison} \\
+\midrule
+Dimension $d$ & 64 & Standard pour MovieLens \\
+Couches $K$ & 3 & Optimum empirique (He et al., 2020) \\
+Taux d'apprentissage & $10^{-3}$ & Convergence stable \\
+Régularisation $\lambda$ & $10^{-4}$ & Anti-overfitting \\
+Batch size & 1\,024 & Vitesse/stabilité \\
+Époques & 30 & Convergence observée \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Entraînement}
+
+La boucle d'entraînement génère des triplets $(u, i^+, i^-)$ et optimise la
+perte BPR via Adam.
+
+\begin{center}
+\begin{tabular}{cccc}
+\toprule
+\textbf{Époque} & \textbf{Loss} & \textbf{Recall@20} & \textbf{NDCG@20} \\
+\midrule
+1 & 0.2420 & 0.1551 & 0.1721 \\
+10 & 0.2104 & 0.1714 & 0.1858 \\
+20 & 0.1883 & 0.1711 & 0.1854 \\
+\cellcolor{yellow!30}28 & \cellcolor{yellow!30}0.1701 &
+  \cellcolor{yellow!30}0.1849 & \cellcolor{yellow!30}0.1990 \\
+30 & 0.1671 & 0.1735 & 0.1906 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Le meilleur modèle est sauvegardé à l'époque 28.
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 4 — RÉSULTATS ET ÉVALUATION
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Résultats et évaluation}
+
+\section{Métriques}
+
+\subsection{Recall@K}
+
+Fraction des items pertinents retrouvés dans les Top-K recommandations :
+\begin{equation}
+  \text{Recall@K} = \frac{|\text{Top-K recommandés} \cap \text{Items test}|}{|\text{Items test}|}
+\end{equation}
+
+\subsection{NDCG@K}
+
+Cumulative gain normalisé (pénalise les mauvais classements) :
+\begin{equation}
+  \text{NDCG@K} = \frac{1}{\text{IDCG@K}} \sum_{k=1}^{K} \frac{\mathbf{1}[\text{item}_k \in \text{test}]}{\log_2(k+1)}
+\end{equation}
+
+\section{Performances finales}
+
+\begin{center}
+\begin{tcolorbox}[colback=green!10,colframe=DGreen,arc=3pt,boxrule=1pt]
+\textbf{Modèle : LightGCN (K=3, d=64, 609 users, 7363 items)}
+
+\vspace{0.3cm}
+
+\begin{tabular}{lll}
+\toprule
+\textbf{K} & \textbf{Recall@K} & \textbf{NDCG@K} \\
+\midrule
+5 & 0.0728 & 0.1926 \\
+10 & 0.1187 & 0.1879 \\
+20 & 0.1793 & 0.1943 \\
+50 & 0.3086 & 0.2244 \\
+\bottomrule
+\end{tabular}
+\end{tcolorbox}
+\end{center}
+
+\textbf{Interprétation} : Le modèle retrouve environ 12\% des films pertinents
+dans les 10 premières recommandations. Les films les plus pertinents sont
+classés en tête (NDCG élevé).
+
+\section{Exemples de recommandations}
+
+\textbf{Utilisateur 0} (historique : Toy Story, Heat, Seven)
+
+\begin{itemize}
+  \item 1. Shawshank Redemption (score: 11.81)
+  \item 2. Pulp Fiction (score: 11.42)
+  \item 3. Forrest Gump (score: 10.73)
+  \item 4. Terminator 2 (score: 8.88)
+  \item 5. Twelve Monkeys (score: 8.80)
+\end{itemize}
+
+\textbf{Utilisateur 1} (historique : Shutter Island, Fight Club, Ex Machina)
+
+\begin{itemize}
+  \item 1. The Matrix (score: 4.53)
+  \item 2. Lord of the Rings (score: 4.07)
+  \item 3. Fight Club (score: 4.02)
+  \item 4. Forrest Gump (score: 4.02)
+  \item 5. Ex Machina (score: 3.91)
+\end{itemize}
+
+Les recommandations montrent une \textbf{cohérence sémantique} : le modèle
+suggère des films du même genre/époque que l'historique.
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 5 — DÉPLOIEMENT FLASK
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Déploiement Flask}
+
+\section{Architecture}
+
+L'application Flask expose l'API REST via plusieurs endpoints :
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Route} & \textbf{Méthode} & \textbf{Description} \\
+\midrule
+\texttt{/} & GET & Interface web \\
+\texttt{/api/recommend} & GET/POST & Recommandations Top-K \\
+\texttt{/api/stats} & GET & Infos modèle \\
+\texttt{/api/users} & GET & Liste utilisateurs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Exemple requête/réponse}
+
+\textbf{Requête :} \texttt{GET /api/recommend?user\_id=0\&k=5}
+
+\textbf{Réponse JSON} (extrait) :
+
+\begin{lstlisting}[language=json]
+{
+  "success": true,
+  "user_id": 0,
+  "recommendations": [
+    {
+      "rank": 1,
+      "title": "Shawshank Redemption (1994)",
+      "score": 11.808
+    },
+    ...
+  ],
+  "model_info": {
+    "parameters": 510208,
+    "layers": 3,
+    "n_users": 609,
+    "n_items": 7363
+  }
+}
+\end{lstlisting}
+
+\section{Améliorations effectuées}
+
+\begin{itemize}
+  \item Conversion robuste de types NumPy → Python (JSON-sérialisable)
+  \item Gestion complète des erreurs avec logging
+  \item Validation des entrées utilisateur
+  \item Réponses structurées avec flag \texttt{success}
+  \item Support GET et POST
+\end{itemize}
+
+%% ════════════════════════════════════════════════════════════════════
+%%  CHAPITRE 6 — CONCLUSION
+%% ════════════════════════════════════════════════════════════════════
+\chapter{Conclusion}
+
+\section{Synthèse}
+
+Ce projet a implémenté avec succès un système complet de recommandation basé
+sur LightGCN :
+
+\begin{enumerate}
+  \item \textbf{Modèle} : 510K paramètres, 3 couches, dimension 64
+  \item \textbf{Performance} : Recall@10 = 11.87\%, NDCG@20 = 19.43\%
+  \item \textbf{Déploiement} : API REST Flask fonctionnelle
+  \item \textbf{Qualité} : Recommandations sémantiquement cohérentes
+\end{enumerate}
+
+\section{Résultats clés}
+
+\begin{center}
+\begin{tcolorbox}[colback=blue!5,colframe=Navy,arc=3pt,boxrule=1pt]
+\begin{tabular}{ll}
+  \textbf{Architecture} & LightGCN (K=3, d=64) \\
+  \textbf{Dataset} & MovieLens small (609 users, 7,363 items) \\
+  \textbf{Interactions train} & 49,619 \\
+  \textbf{Meilleur Recall@20} & 0.1849 (époque 28) \\
+  \textbf{Temps d'entraînement} & 572 secondes (CPU) \\
+\end{tabular}
+\end{tcolorbox}
+\end{center}
+
+\section{Perspectives futures}
+
+\begin{itemize}
+  \item Augmenter la dimensionalité d'embedding ($d = 128$)
+  \item Expérimenter avec plus de couches ($K = 4, 5$)
+  \item Intégrer des features de contenu (genres, année)
+  \item Déployer avec GPU pour améliorer la vitesse
+  \item Ajouter un frontend interactif
+\end{itemize}
+
+%% ════════════════════════════════════════════════════════════════════
+\end{document}
